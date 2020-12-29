@@ -1,8 +1,24 @@
-import { ApolloError, gql } from '@apollo/client';
-import { AxiosClient, ApolloClient } from '../clients';
+import { ApolloClient, ApolloError, NormalizedCacheObject } from '@apollo/client';
+import { AxiosClient, WrappedApolloClient } from '../clients';
 import { CertificationNumber, JoinUserInfo } from '../types';
 import { CODE } from '../values';
 import { JoinError, ValidationError } from '../errors';
+import {
+  QUERY_GENERATE_CERTIFICATION_NUMBER,
+  QUERY_VALIDATE_CERTIFICATION_NUMBER,
+} from '../queries';
+
+
+const AXIOS_ENDPOINT = '';
+const APOLLO_ENDPOINT = '';
+
+let apolloClient: ApolloClient<NormalizedCacheObject> | null = null;
+let axiosClient: AxiosClient | null = null;
+let isVerified = false;
+const initialize = () => {
+  axiosClient = new AxiosClient(AXIOS_ENDPOINT);
+  apolloClient = new WrappedApolloClient(APOLLO_ENDPOINT).getInstance();
+};
 
 const handleException = (error: ApolloError) => {
   if (error.graphQLErrors.length > 0) {
@@ -19,66 +35,63 @@ const handleException = (error: ApolloError) => {
 };
 
 const generateCertificationNumber = (phoneNumber: string) => {
-  const generateCertificationNumber = gql`
-    mutation GenerateAuthNumWithSignUp($phone: String!) {
-      generateAuthNumWithSignUp(phone: $phone) {
-        authNumId
-        phone
-        createDt
-        createUserId
-        updateDt
-        updateUserId
+  if (apolloClient) {
+    return apolloClient.mutate({
+      mutation: QUERY_GENERATE_CERTIFICATION_NUMBER,
+      variables: {
+        phone: phoneNumber
       }
-    }
-  `;
-
-  return ApolloClient.mutate({
-    mutation: generateCertificationNumber,
-    variables: {
-      phone: phoneNumber
-    }
-  }).then((response) => {
-    return response.data.generateAuthNumWithSignUp;
-  }).catch((error) => {
-    handleException(error);
-  });
+    }).then((response) => {
+      return response.data.generateAuthNumWithSignUp;
+    }).catch((error) => {
+      handleException(error);
+    });
+  } else {
+    throw new ValidationError(CODE.NETWORK_ERROR);
+  }
 };
 
 const validateCertificationNumber = (certificate: CertificationNumber) => {
-  const validateCertificationNumber = gql`
-    mutation GenerateAuthNumWithSignUpConfirm($authNumId: Int!, $authNum: String!) {
-      generateAuthNumWithSignUpConfirm(authNumId: $authNumId, authNum: $authNum)
-    }
-  `;
-
-  return ApolloClient.mutate({
-    mutation: validateCertificationNumber,
-    variables: {
-      authNumId: certificate.authNumId,
-      authNum: certificate.authNum
-    }
-  }).then((response) => {
-    if (response.data.generateAuthNumWithSignUpConfirm) {
-      return true;
-    }
-  }).catch((error) => {
-    handleException(error);
-  });
+  if (apolloClient) {
+    return apolloClient.mutate({
+      mutation: QUERY_VALIDATE_CERTIFICATION_NUMBER,
+      variables: {
+        authNumId: certificate.authNumId,
+        authNum: certificate.authNum
+      }
+    }).then((response) => {
+      if (response.data.generateAuthNumWithSignUpConfirm) {
+        isVerified = true;
+        return true;
+      }
+    }).catch((error) => {
+      handleException(error);
+    });
+  } else {
+    throw new ValidationError(CODE.NETWORK_ERROR);
+  }
 };
 
 const joinWith = async (params: JoinUserInfo) => {
   let isJoined = false;
-  const response = await AxiosClient.post('/auth/v1/user/signup', params);
-  if (response.data.code === CODE.SUCCESS) {
-    isJoined = true;
-  } else {
-    throw new JoinError(response.data.code);
+  if (axiosClient) {
+    if (!isVerified) {
+      throw new JoinError(CODE.OTHER_JOIN_ERROR);
+    }
+
+    const response = await axiosClient.post('/auth/v1/user/signup', params);
+    if (response.data.code === CODE.SUCCESS) {
+      isJoined = true;
+    } else {
+      throw new JoinError(response.data.code);
+    }
   }
 
   return isJoined;
 };
 
 export {
+  initialize,
   generateCertificationNumber,
   validateCertificationNumber,
   joinWith,

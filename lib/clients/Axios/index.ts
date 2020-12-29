@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
 const OAUTH_BASIC_KEY = 'Basic ZG9zb28td2ViOnNlY3JldA==';
-class AxiosClient {
+export default class AxiosClient {
   private axios: AxiosInstance;
   private token: string | object = OAUTH_BASIC_KEY;
 
@@ -50,8 +50,3 @@ class AxiosClient {
     return this.axios.delete(path, payload).then((result: AxiosResponse) => result);
   }
 }
-
-const client = new AxiosClient('https://api-gw-stage.onemedics.net');
-
-export default client;
-

@@ -1,4 +1,5 @@
 export const CODE = {
+  NETWORK_ERROR: '00000',
   /*validate*/
   INVALID_CERTIFICATION_NUMBER: '11000',
   DUPLICATE_PHONE: '13001',

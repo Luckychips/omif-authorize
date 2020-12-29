@@ -1,10 +1,19 @@
-import { validateCertificationNumber, joinWith, CODE } from '../lib';
+import {
+  CODE,
+  initialize,
+  validateCertificationNumber,
+  joinWith
+} from '../lib';
+
+beforeEach(() => {
+  initialize();
+})
 
 it('full test', async () => {
   try {
     await validateCertificationNumber({
-      authNumId: 100103486,
-      authNum: '027376'
+      authNumId: 100103569,
+      authNum: '949451'
     });
 
     const params = {
@@ -22,6 +31,4 @@ it('full test', async () => {
   } catch (error) {
     expect(error.statusCode).toBe(CODE.DUPLICATE_ID);
   }
-
-  expect(1).toBe(1);
 });
